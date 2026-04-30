@@ -1,0 +1,67 @@
+{
+  "name": "how_vi (Go + SupaBase - PostgreSQL)",
+
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+
+  "customizations": {
+    "vscode": {
+
+      "extensions": [
+        // ── Go ────────────────────────────────────────────────────────────────
+        "golang.go",                        // extensão oficial: autocomplete, debug,
+                                            // go to definition, testes integrados
+                                            // instala gopls (language server) automaticamente
+
+        // ── Qualidade de código ───────────────────────────────────────────────
+        "usernamehw.errorlens",             // mostra erros e warnings INLINE no código
+                                            // essencial para aprendizado: você vê o erro
+                                            // exatamente onde ele está, sem precisar olhar
+                                            // o painel de problemas
+
+        // ── Git ───────────────────────────────────────────────────────────────
+        "eamodio.gitlens",                  // superpoderes de git: quem escreveu cada linha,
+                                            // histórico inline, comparação de branches
+
+        // ── Banco de dados ────────────────────────────────────────────────────
+        "mtxr.sqltools",                    // cliente SQL integrado no VS Code
+        "mtxr.sqltools-driver-pg",          // driver PostgreSQL para o SQLTools
+
+        // ── Testes de API ─────────────────────────────────────────────────────
+        "humao.rest-client",                // arquivos .http para testar endpoints
+                                            // ex: GET http://localhost:8080/vessels
+
+        // ── Docker ────────────────────────────────────────────────────────────
+        "ms-azuretools.vscode-docker",      // gerenciar containers sem sair do VS Code
+
+        // ── Produtividade ─────────────────────────────────────────────────────
+        "streetsidesoftware.code-spell-checker",  // corretor ortográfico (útil em comentários)
+        "wayou.vscode-todo-highlight"             // destaca TODO, FIXME, HACK no código
+      ],
+
+      "settings": {
+        // ── Formatação automática ao salvar ───────────────────────────────────
+        "[go]": {
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"   // organiza imports automaticamente
+          }
+        },
+
+        // ── Gopls (language server do Go) ─────────────────────────────────────
+        "go.useLanguageServer": true,
+        "go.toolsManagement.autoUpdate": true,
+
+        // ── Editor geral ──────────────────────────────────────────────────────
+        "editor.rulers": [100],            // linha guia em 100 caracteres (padrão Go)
+        "editor.minimap.enabled": false,   // remove o minimapa (mais espaço para código)
+        "files.trimTrailingWhitespace": true
+      }
+    }
+  },
+
+  "forwardPorts": 8180,
+
+  "postCreateCommand": "if [ -f go.mod ]; then go mod tidy; fi"
+}

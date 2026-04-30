@@ -1,0 +1,15 @@
+services:
+
+  # ── Serviço 1: Ambiente de desenvolvimento Go ─────────────────────────────
+  # É aqui que o VS Code vai "entrar" para trabalhar
+  app:
+    build:
+      context: .               # raiz do projeto (onde está o go.mod)
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - .:/workspace:cached    # monta o projeto dentro do container
+    command: sleep infinity    # mantém o container vivo (VS Code assume o controle)
+    env_file:
+      - .env                   # só sobe depois que o banco estiver pronto
+    ports:
+      - "8180:8180"            # acesso ao servidor Go: localhost:8180 -> container:8080
