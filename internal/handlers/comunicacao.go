@@ -85,6 +85,13 @@ func (h *Handler) comunicacaoCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// dispara notificação em paralelo — não bloqueia o redirect
+	// argumentos passados por valor: garante cópias próprias para a goroutine
+	go func(titulo, email string) {
+		log.Printf("[notif] nova comunicação '%s' registrada por %s", titulo, email)
+		// aqui entraria: enviarEmail(email, titulo)
+	}(titulo, email)
+
 	http.Redirect(w, r, "/comunicacoes", http.StatusSeeOther)
 }
 
