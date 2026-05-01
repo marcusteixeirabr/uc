@@ -20,30 +20,24 @@ Aplicação web desenvolvida em **Go puro** (sem framework) com banco de dados *
 ## Stack
 
 ```
-┌────────────────────────────────────────────┐
-│  Browser (cliente)                          │
-│     ↕  HTTP (GET / POST)                   │
-├────────────────────────────────────────────┤
-│  Go net/http  →  handlers  →  html/template │
-│  (servidor web, sem framework)              │
-├────────────────────────────────────────────┤
-│  supabase-go  →  PostgREST API (HTTPS/443) │
-├────────────────────────────────────────────┤
-│  Supabase (PostgreSQL na nuvem)            │
-└────────────────────────────────────────────┘
+┌────────────────────────────────────────────────┐
+│  Browser (cliente)                              │
+│     ↕  HTTP (GET / POST)                       │
+├────────────────────────────────────────────────┤
+│  Go net/http  →  middleware  →  handlers        │
+│  html/template embutido via //go:embed          │
+├────────────────────────────────────────────────┤
+│  supabase-go  →  PostgREST API (HTTPS/443)     │
+├────────────────────────────────────────────────┤
+│  Supabase (PostgreSQL na nuvem)                │
+└────────────────────────────────────────────────┘
 ```
 
-### Por que Go sem framework?
+**Por que Go sem framework?** Em Spring Boot (`@GetMapping`, `@Controller`) o framework faz roteamento, injeção de dependências e serialização de forma invisível. Em Go, escrevemos tudo explicitamente — você entende exatamente o que cada linha faz e consegue adaptar ou construir um framework quando necessário.
 
-Em Spring Boot (`@GetMapping`, `@Controller`) o framework faz muita "magia" — roteamento, injeção de dependências, serialização — de forma invisível. Em Go, escrevemos tudo explicitamente. Isso parece trabalhoso no início, mas tem um benefício importante: você entende exatamente o que cada linha faz, o que torna possível escolher, adaptar ou construir um framework quando necessário.
+**Por que Supabase em vez de PostgreSQL local?** O `supabase-go` usa a API **PostgREST** via HTTPS — sem abrir porta TCP 5432, sem problemas de firewall em redes corporativas, sem container de banco no `docker-compose.yml`.
 
-### Por que Supabase em vez de PostgreSQL local?
-
-O Supabase é PostgreSQL hospedado na nuvem. Em vez de manter um container de banco de dados local (que ocupa memória, precisa de migrate, etc.), conectamos diretamente ao serviço remoto via HTTPS. O `supabase-go` usa a API **PostgREST** do Supabase — não abre porta TCP 5432, o que evita problemas de firewall em redes corporativas e simplifica o `docker-compose.yml`.
-
-### Por que DevContainer?
-
-DevContainer = o ambiente de desenvolvimento roda **dentro de um container Docker**. Isso garante que todos os colaboradores têm exatamente as mesmas ferramentas (`air`, `goose`, `sqlc`, `go 1.26`) independente do sistema operacional do host. É o equivalente de uma "configuração padronizada de estação de trabalho" — todos navegam com o mesmo equipamento.
+**Por que DevContainer?** Garante que todos os colaboradores têm exatamente as mesmas ferramentas (`air`, `goose`, `sqlc`, `go 1.26`) independente do sistema operacional.
 
 ---
 
@@ -52,26 +46,32 @@ DevContainer = o ambiente de desenvolvimento roda **dentro de um container Docke
 ```
 uc/
 ├── .devcontainer/
-│   ├── Dockerfile          # imagem Go 1.26 Alpine + ferramentas (air, goose, sqlc)
-│   ├── devcontainer.json   # configuração do VS Code dentro do container
-│   └── setup-ssh.sh        # copia chaves SSH do host → container (para git push)
-├── .env                    # credenciais (NÃO vai pro Git — ver .gitignore)
-├── .gitignore
-├── docker-compose.yml      # sobe apenas o container `app` (banco fica no Supabase)
-├── go.mod                  # módulo Go: declara nome, versão e dependências
-├── go.sum                  # checksums das dependências (não editar manualmente)
-├── main.go                 # ponto de entrada: conecta ao banco, registra rotas, sobe servidor
+│   ├── Dockerfile              # Go 1.26 Alpine + air + goose + sqlc + openssh
+│   ├── devcontainer.json       # VS Code no container, porta 8180
+│   └── setup-ssh.sh            # copia chaves SSH do host → container
+├── .air.toml                   # hot reload: monitora .go e .html
+├── .env                        # credenciais (NÃO vai pro Git)
+├── .env.example                # template para novos colaboradores
+├── .gitignore                  # .env, tmp/, *.exe
+├── docker-compose.yml          # só o container app (banco no Supabase)
+├── go.mod / go.sum             # módulo e checksums de dependências
+├── main.go                     # embed templates, ServeMux, middleware, servidor
+├── db/
+│   └── migrations/
+│       ├── 00001_schema_inicial.sql    # DDL completo (up/down)
+│       └── 00002_dados_iniciais.sql    # dados de exemplo (up/down)
 ├── internal/
-│   ├── db/
-│   │   └── db.go           # cria e retorna o cliente Supabase
-│   └── handlers/
-│       ├── uc.go           # handler GET /ucs  +  structs Handler e UC
-│       └── comunicacao.go  # handlers GET/POST /comunicacoes/nova e GET /comunicacoes
-└── templates/
-    ├── base.html           # layout HTML reutilizável (nav, head, body)
-    ├── uc_list.html        # tabela de unidades de conservação
-    ├── comunicacao_form.html   # formulário de nova comunicação
-    └── comunicacao_list.html  # tabela de comunicações com status colorido
+│   ├── db/db.go                # Connect() → cliente Supabase
+│   ├── handlers/
+│   │   ├── uc.go               # Handler struct, UCList
+│   │   └── comunicacao.go      # ComunicacaoForm/List/Create + goroutine
+│   └── middleware/
+│       └── logger.go           # Logger: método, rota, status, duração
+└── templates/                  # embutidos no binário via //go:embed
+    ├── base.html
+    ├── uc_list.html
+    ├── comunicacao_form.html
+    └── comunicacao_list.html
 ```
 
 ---
@@ -82,6 +82,7 @@ uc/
 classDiagram
     class Handler {
         +DB *supabase.Client
+        +Templates embed.FS
         +UCList(w ResponseWriter, r Request)
         +ComunicacaoList(w ResponseWriter, r Request)
         +ComunicacaoForm(w ResponseWriter, r Request)
@@ -113,7 +114,7 @@ classDiagram
     Handler ..> OpcaoUC : produz []OpcaoUC para o select
 ```
 
-> Os "objetos" em Go são **structs** (não classes). Não há herança — apenas composição. Os métodos são definidos com **receivers** (`func (h *Handler) UCList(...)`), equivalente aos métodos de instância em Java.
+> Em Go não há classes nem herança — apenas **structs** e **composição**. Métodos são definidos com *receivers*: `func (h *Handler) UCList(...)`.
 
 ---
 
@@ -159,47 +160,42 @@ erDiagram
     UNIDADE_CONSERVACAO ||--o{ COMUNICACAO : "recebe"
 ```
 
-> `UNIDADE_MUNICIPIO` é uma **tabela associativa** (N:N entre UC e Município). Uma UC pode abranger vários municípios, e um município pode ter várias UCs.
+> `UNIDADE_MUNICIPIO` é uma **tabela associativa** (N:N). Uma UC pode abranger vários municípios; um município pode ter várias UCs.
 
 ---
 
 ## DDL — Criação das Tabelas (PostgreSQL / Supabase)
 
-Execute no **SQL Editor do Supabase** na ordem abaixo (respeitar a ordem das foreign keys):
+> O schema está versionado em `db/migrations/00001_schema_inicial.sql`. Para criar via goose, veja a seção [Migrations](#migrations). Para criar manualmente, execute no **SQL Editor do Supabase** na ordem abaixo.
 
 ```sql
--- 1. Instituição responsável pela UC
 CREATE TABLE instituicao (
   id    SERIAL PRIMARY KEY,
   nome  VARCHAR(150) NOT NULL,
   email VARCHAR(150) NOT NULL UNIQUE
 );
 
--- 2. Unidade de Conservação
 CREATE TABLE unidade_conservacao (
   id             SERIAL PRIMARY KEY,
   nome           VARCHAR(150) NOT NULL,
   data_criacao   DATE         NOT NULL,
   descricao      TEXT,
   imagem_url     VARCHAR(255),
-  instituicao_id INT          NOT NULL REFERENCES instituicao(id)
+  instituicao_id INT NOT NULL REFERENCES instituicao(id)
 );
 
--- 3. Município
 CREATE TABLE municipio (
   id     SERIAL PRIMARY KEY,
   nome   VARCHAR(150) NOT NULL,
   estado CHAR(2)      NOT NULL
 );
 
--- 4. Tabela associativa UC ↔ Município (N:N)
 CREATE TABLE unidade_municipio (
   unidade_id   INT NOT NULL REFERENCES unidade_conservacao(id),
   municipio_id INT NOT NULL REFERENCES municipio(id),
   PRIMARY KEY (unidade_id, municipio_id)
 );
 
--- 5. Comunicações da população sobre as UCs
 CREATE TABLE comunicacao (
   id         SERIAL PRIMARY KEY,
   titulo     VARCHAR(150) NOT NULL,
@@ -211,45 +207,34 @@ CREATE TABLE comunicacao (
 );
 ```
 
-> **Nota:** O arquivo `material/UnidadeConservacao.sql` usa sintaxe **MySQL** (`AUTO_INCREMENT`, `DATETIME`). O DDL acima é a versão adaptada para **PostgreSQL** (`SERIAL`, `TIMESTAMP`).
+> O arquivo `material/UnidadeConservacao.sql` usa sintaxe **MySQL** (`AUTO_INCREMENT`, `DATETIME`). O DDL acima é adaptado para **PostgreSQL** (`SERIAL`, `TIMESTAMP`).
 
 ---
 
 ## DML — Dados de Exemplo
 
+> Também versionado em `db/migrations/00002_dados_iniciais.sql`.
+
 ```sql
--- Instituições
 INSERT INTO instituicao (nome, email) VALUES
-('ICMBio', 'icmbio@org.br'),
-('IMA SC', 'ima@sc.gov.br');
+('ICMBio', 'icmbio@org.br'), ('IMA SC', 'ima@sc.gov.br');
 
--- Municípios
 INSERT INTO municipio (nome, estado) VALUES
-('Florianopolis', 'SC'),
-('Balneario Camboriu', 'SC'),
-('Itajai', 'SC'),
-('Bombinhas', 'SC');
+('Florianopolis','SC'),('Balneario Camboriu','SC'),('Itajai','SC'),('Bombinhas','SC');
 
--- Unidades de Conservação
 INSERT INTO unidade_conservacao (nome, data_criacao, descricao, imagem_url, instituicao_id) VALUES
-('Parque do Rio Vermelho', '2007-03-24', 'Area de preservacao ambiental',      'img1.jpg', 2),
-('Parque Raimundo Malta',  '1993-07-15', 'Parque com trilhas e vegetacao nativa','img2.jpg', 2),
-('Reserva do Arvoredo',    '1990-04-12', 'Reserva marinha protegida',           'img3.jpg', 1),
-('Parque da Ressacada',    '2008-09-10', 'Area voltada para educacao ambiental', 'img4.jpg', 2);
+('Parque do Rio Vermelho','2007-03-24','Area de preservacao ambiental','img1.jpg',2),
+('Parque Raimundo Malta', '1993-07-15','Parque com trilhas e vegetacao nativa','img2.jpg',2),
+('Reserva do Arvoredo',   '1990-04-12','Reserva marinha protegida','img3.jpg',1),
+('Parque da Ressacada',   '2008-09-10','Area voltada para educacao ambiental','img4.jpg',2);
 
--- Relação UC ↔ Município
 INSERT INTO unidade_municipio (unidade_id, municipio_id) VALUES
-(1, 1),  -- Rio Vermelho → Florianópolis
-(2, 2),  -- Raimundo Malta → Balneário Camboriú
-(3, 1),  -- Arvoredo → Florianópolis
-(3, 4),  -- Arvoredo → Bombinhas  (UC em 2 municípios)
-(4, 3);  -- Ressacada → Itajaí
+(1,1),(2,2),(3,1),(3,4),(4,3);
 
--- Comunicações iniciais
 INSERT INTO comunicacao (titulo, descricao, data_hora, email, status, unidade_id) VALUES
-('Lixo na trilha',  'Tem lixo acumulado em alguns pontos',  '2026-04-20 10:30:00', 'user1@email.com', 0, 1),
-('Placa quebrada',  'Uma placa informativa esta danificada', '2026-04-21 14:00:00', 'user2@email.com', 1, 2),
-('Pesca irregular', 'Possivel atividade ilegal na area',    '2026-04-22 09:15:00', 'user3@email.com', 0, 3);
+('Lixo na trilha',  'Tem lixo acumulado em alguns pontos',  '2026-04-20 10:30:00','user1@email.com',0,1),
+('Placa quebrada',  'Uma placa informativa esta danificada','2026-04-21 14:00:00','user2@email.com',1,2),
+('Pesca irregular', 'Possivel atividade ilegal na area',   '2026-04-22 09:15:00','user3@email.com',0,3);
 ```
 
 > `status = 0` → Pendente | `status = 1` → Atendida
@@ -260,147 +245,119 @@ INSERT INTO comunicacao (titulo, descricao, data_hora, email, status, unidade_id
 
 ### Pré-requisitos
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado
-- [VS Code](https://code.visualstudio.com/) com a extensão **Dev Containers** (`ms-vscode-remote.remote-containers`)
-- Conta no [Supabase](https://supabase.com) com o banco criado e o DDL executado
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- [VS Code](https://code.visualstudio.com/) com extensão **Dev Containers**
+- Conta no [Supabase](https://supabase.com) com o banco criado
 
 ### 1. Configure o `.env`
 
-Crie o arquivo `uc/.env` (não vai pro Git):
+Copie `.env.example` para `.env` e preencha:
 
 ```bash
-# Pegue em: Supabase → Settings → API → Project URL
+# Supabase → Settings → API → Project URL
 DATABASE_URL=https://xxxxxxxxxxxx.supabase.co
 
-# Pegue em: Supabase → Settings → API → anon/public key
+# Supabase → Settings → API → anon/public key
 DATABASE_KEY=eyJhbGci...
+
+# Supabase → Settings → Database → Connection string → URI  (para goose)
+GOOSE_DBSTRING=postgresql://postgres.xxxx:SENHA@host.pooler.supabase.com:6543/postgres
 
 PORT=8180
 ```
 
-> `DATABASE_URL` deve ser **apenas o domínio** do projeto Supabase, sem `/rest/v1` no final.
+> `DATABASE_URL` deve ser **apenas o domínio**, sem `/rest/v1`.
 
 ### 2. Abra no DevContainer
 
-1. Abra a pasta `uc/` no VS Code
-2. Quando aparecer o popup "Reopen in Container", clique nele
-3. (Ou: `Ctrl+Shift+P` → "Dev Containers: Reopen in Container")
-4. Aguarde o Docker construir a imagem (~2 min na primeira vez)
+`Ctrl+Shift+P` → **Dev Containers: Reopen in Container** → aguarde ~2 min na primeira vez.
 
-### 3. Execute o servidor
-
-No terminal **dentro do container**:
+### 3. Crie o schema com goose (primeira vez)
 
 ```bash
-go run main.go
+export GOOSE_DRIVER=postgres
+export GOOSE_DBSTRING="$(grep GOOSE_DBSTRING .env | cut -d= -f2-)"
+goose -dir db/migrations up
 ```
 
-Acesse no browser: `http://localhost:8180/ucs`
+### 4. Execute o servidor com hot reload
+
+```bash
+air
+```
+
+Acesse: `http://localhost:8180/ucs`
+
+> Salve qualquer `.go` ou `.html` e o servidor reinicia automaticamente.
 
 ---
 
-## Conceitos Principais Ensinados
+## Distribuição para Windows (sem instalar nada)
 
-### 1. DevContainer e Docker Compose
+Para enviar o executável para colegas rodarem no Windows:
 
-O `docker-compose.yml` sobe apenas um serviço (`app`) — o container onde o Go roda. O banco fica no Supabase. O `Dockerfile` usa Alpine Linux (~200 MB vs ~1.5 GB do Debian) e pré-instala ferramentas:
-
-- `air` — reinicia o servidor automaticamente ao salvar (equivalente ao Spring DevTools)
-- `goose` — gerencia migrations de banco (próximo passo do projeto)
-- `sqlc` — gera código Go a partir de queries SQL (próximo passo)
-
-**Por que `go clean -modcache` no mesmo RUN do Dockerfile?**
-O cache de módulos do Go é criado e removido na **mesma camada Docker**. Se o `clean` ficasse em outro `RUN`, a camada anterior com ~3 GB de dependências transitivas ficaria embedada na imagem mesmo após o clean.
-
-### 2. Servidor HTTP em Go sem framework
-
-```go
-// Registrar rota → função handler
-http.HandleFunc("/ucs", h.UCList)
-
-// Subir servidor
-log.Fatal(http.ListenAndServe(":8180", nil))
+```bash
+# dentro do DevContainer, na pasta uc/
+GOOS=windows GOARCH=amd64 go build -o uc.exe .
 ```
 
-Todo handler tem a mesma assinatura:
-- `w http.ResponseWriter` → onde você **escreve** a resposta (canal de saída)
-- `r *http.Request` → a requisição que chegou (URL, método, body, headers)
+O colega recebe `uc.exe` (~13MB, templates embutidos) + cria um `.env` com as credenciais. Executa:
 
-### 3. Templates HTML (`html/template`)
-
-Go usa um sistema de **template herança** com `{{define}}` e `{{block}}`:
-
-```
-base.html          → define o layout geral (nav, head, body)
-  └── uc_list.html → define apenas o "content" que vai dentro do layout
+```powershell
+cd pasta-do-exe
+.\uc.exe
+# acessa http://localhost:8180/ucs
 ```
 
-O handler carrega e executa os dois arquivos juntos:
-```go
-tmpl, _ := template.ParseFiles("templates/base.html", "templates/uc_list.html")
-tmpl.ExecuteTemplate(w, "base", dados)
+Nenhuma instalação necessária — Go compila binários estáticos e autossuficientes.
+
+---
+
+## Migrations com goose
+
+```bash
+export GOOSE_DRIVER=postgres
+export GOOSE_DBSTRING="$(grep GOOSE_DBSTRING .env | cut -d= -f2-)"
+
+goose -dir db/migrations status   # ver o que está aplicado
+goose -dir db/migrations up       # aplicar migrations pendentes
+goose -dir db/migrations down     # reverter a última migration
 ```
 
-### 4. Dependency Injection em Go
+Para evoluir o schema, crie um novo arquivo — nunca edite os existentes:
 
-Em vez de variáveis globais, usamos uma `struct` que "carrega" o cliente de banco, e os handlers viram **métodos** dessa struct:
-
-```go
-type Handler struct {
-    DB *supabase.Client  // dependência injetada
-}
-
-func (h *Handler) UCList(w http.ResponseWriter, r *http.Request) {
-    // h.DB disponível aqui sem global
-}
+```
+db/migrations/00003_minha_mudanca.sql
 ```
 
-No `main.go`:
-```go
-h := &handlers.Handler{DB: client}
-http.HandleFunc("/ucs", h.UCList)
-```
-
-Em Spring Boot isso seria feito com `@Autowired`. Em Go, a injeção é **explícita** — sem magia, sem surpresas.
-
-### 5. supabase-go e PostgREST
-
-O `supabase-go` não abre conexão TCP com o PostgreSQL. Ele faz chamadas **HTTPS** para a API REST do Supabase (PostgREST). O JOIN via foreign key é feito pela sintaxe `"instituicao(nome)"` no Select:
-
-```go
-h.DB.From("unidade_conservacao").
-    Select("nome, data_criacao, descricao, instituicao(nome)", "", false).
-    Order("nome", &postgrest.OrderOpts{Ascending: true}).
-    ExecuteTo(&rows)
-```
-
-Isso é equivalente ao SQL:
 ```sql
-SELECT uc.nome, uc.data_criacao, uc.descricao, i.nome
-FROM unidade_conservacao uc
-JOIN instituicao i ON i.id = uc.instituicao_id
-ORDER BY uc.nome ASC;
+-- +goose Up
+ALTER TABLE comunicacao ADD COLUMN telefone VARCHAR(20);
+
+-- +goose Down
+ALTER TABLE comunicacao DROP COLUMN telefone;
 ```
 
-### 6. Padrão PRG (Post-Redirect-Get)
+---
 
-Após um POST bem-sucedido, o servidor **não renderiza HTML** — ele redireciona para um GET:
+## Conceitos Implementados
 
-```
-Browser → POST /comunicacoes/nova → INSERT no banco
-        ← 303 See Other /comunicacoes
-Browser → GET /comunicacoes → SELECT no banco → HTML
-```
-
-Isso evita que o usuário reenvie o formulário ao apertar F5.
-
-```go
-http.Redirect(w, r, "/comunicacoes", http.StatusSeeOther)
-```
-
-### 7. `godotenv.Overload()` vs `Load()`
-
-`godotenv.Load()` não sobrescreve variáveis já existentes no ambiente. O Docker Compose injeta as variáveis do `.env` ao iniciar o container — se o `.env` for alterado depois, `Load()` ignora as mudanças. `Overload()` sempre usa o arquivo `.env` como fonte de verdade.
+| # | Conceito | Onde no código |
+|---|----------|----------------|
+| 1 | DevContainer + Docker Compose sem banco local | `.devcontainer/`, `docker-compose.yml` |
+| 2 | Servidor HTTP sem framework, `http.ServeMux` | `main.go` |
+| 3 | Templates HTML com herança (`base.html`) | `templates/` |
+| 4 | Dependency Injection via struct | `handlers.Handler{DB, Templates}` |
+| 5 | PostgREST: JOIN via `"tabela(coluna)"` | `uc.go`, `comunicacao.go` |
+| 6 | Padrão PRG (Post-Redirect-Get) | `comunicacaoCreate` |
+| 7 | Hot reload com `air` | `.air.toml` |
+| 8 | Middleware como function wrapping | `middleware/logger.go` |
+| 9 | Struct embedding para estender interface | `responseWriter` em `logger.go` |
+| 10 | Templates embutidos no binário (`//go:embed`) | `main.go` |
+| 11 | Goroutine fire-and-forget | `comunicacaoCreate` |
+| 12 | Tratamento de erros idiomático (`%w`) | `db.go`, todos os handlers |
+| 13 | Migrations versionadas com goose | `db/migrations/` |
+| 14 | Cross-compile para Windows | `GOOS=windows go build` |
 
 ---
 
@@ -408,12 +365,13 @@ http.Redirect(w, r, "/comunicacoes", http.StatusSeeOther)
 
 | Problema | Causa | Solução |
 |----------|-------|---------|
-| `git push` falha no container | `openssh-client` não instalado na imagem Alpine | Adicionar `openssh-client` no `apk add` do Dockerfile |
-| Chaves SSH não encontradas | Container isolado, não enxerga `~/.ssh` do host | Montar `~/.ssh:/root/host-ssh:ro` + `setup-ssh.sh` copia e ajusta permissões |
-| `pgx` não conecta ao Supabase | Supabase bloqueia TCP na porta 5432 externamente | Usar `supabase-go` que usa HTTPS/443 (PostgREST) |
-| Erro PGRST125 "Invalid path" | `DATABASE_URL` continha `/rest/v1` — a lib adiciona esse sufixo internamente | `DATABASE_URL` deve ser só o domínio: `https://xxxx.supabase.co` |
-| `.env` ignorado em runtime | `godotenv.Load()` não sobrescreve env já injetado pelo Docker | Usar `godotenv.Overload()` |
-| Datas chegam como string | `supabase-go` usa JSON (PostgREST), não protocolo binário PostgreSQL | Parsear manualmente com `time.Parse` |
+| `git push` falha no container | `openssh-client` ausente na imagem Alpine | Adicionar no `apk add` do Dockerfile |
+| SSH rejeita chaves no container | Proprietário das chaves (uid 1000) ≠ root (uid 0) | `setup-ssh.sh` copia e corrige permissões |
+| `pgx` não conecta ao Supabase | Supabase bloqueia TCP 5432 externamente | Usar `supabase-go` (HTTPS/PostgREST) |
+| Erro PGRST125 "Invalid path" | `DATABASE_URL` com `/rest/v1` — a lib duplica o sufixo | `DATABASE_URL` = só o domínio |
+| `.env` ignorado após container subir | `godotenv.Load()` não sobrescreve vars já injetadas | Usar `godotenv.Overload()` |
+| Datas chegam como string | PostgREST retorna JSON, não protocolo binário | Parsear com `time.Parse` |
+| `.exe` sem templates quebra | `template.ParseFiles` lê do disco em runtime | Usar `//go:embed` + `template.ParseFS` |
 
 ---
 
@@ -421,33 +379,61 @@ http.Redirect(w, r, "/comunicacoes", http.StatusSeeOther)
 
 | Pacote | Versão | Função |
 |--------|--------|--------|
-| `github.com/joho/godotenv` | v1.5.1 | Carrega variáveis do arquivo `.env` |
-| `github.com/supabase-community/supabase-go` | v0.0.4 | Cliente Supabase (wrapper sobre PostgREST) |
-| `github.com/supabase-community/postgrest-go` | v0.0.11 | API PostgREST (query builder) — dependência do supabase-go |
+| `github.com/joho/godotenv` | v1.5.1 | Carrega o `.env` |
+| `github.com/supabase-community/supabase-go` | v0.0.4 | Cliente Supabase (PostgREST) |
+| `github.com/supabase-community/postgrest-go` | v0.0.11 | Query builder PostgREST |
+
+Ferramentas no container (não são dependências do módulo Go):
+
+| Ferramenta | Versão | Função |
+|-----------|--------|--------|
+| `air` | v1.65.1 | Hot reload |
+| `goose` | v3.27.1 | Migrations de banco |
+| `sqlc` | v1.31.1 | Geração de código a partir de SQL |
 
 ---
 
-## Próximos Passos (roadmap)
+## Próximos Passos
 
-- [ ] `air` — hot reload automático no desenvolvimento
-- [ ] `goose` — migrations versionadas do banco
-- [ ] Middleware de logging e autenticação
-- [ ] Goroutines — processamento concorrente (ex: enviar e-mail ao criar comunicação)
-- [ ] `sqlc` — geração de código Go tipado a partir de queries SQL
+### Para quem quer rodar e entender o projeto agora
+- Seguir as seções "Como Rodar" e "Migrations" acima
+- Ler os comentários no código — cada decisão não-óbvia está explicada
+
+### Para quem quer continuar o aprendizado Go
+
+**Fundamentos da linguagem** (base para tudo abaixo)
+- Tipos, zero values, slices, maps
+- Interfaces — o padrão que você já viu em `http.Handler`
+- Ponteiros — quando usar `*T` vs `T`
+
+**Próximas funcionalidades no projeto**
+- [ ] **Testes** — `testing` + `httptest`: testar handlers sem subir servidor
+- [ ] **sqlc** — gerar structs e funções Go tipadas a partir das queries SQL; elimina os mapeamentos manuais
+- [ ] **Repositório pattern** — desacoplar handlers do banco com interfaces; facilita testes e troca de banco
+- [ ] **Validação com feedback visual** — erros de formulário mostrados ao usuário
+
+**Infraestrutura e deploy**
+- [ ] **Docker multi-stage build** — imagem de produção ~10MB (sem toolchain Go)
+- [ ] **GitHub Actions** — CI/CD: compilar e testar automaticamente a cada push; gerar binários para Windows/Linux/Mac
+- [ ] **Deploy** — Fly.io ou Railway (Go tem deploy direto de binário, sem JVM)
+- [ ] **Autenticação** — Supabase Auth + validação de JWT no middleware
+
+**Horizonte (Web3 + infra)**
+- [ ] Go tem o ecossistema mais forte para Web3 — `go-ethereum` é Go puro
+- [ ] gRPC, Protocol Buffers — comunicação entre serviços
+- [ ] Kubernetes operators — escritos em Go (controller-runtime)
 
 ---
 
 ## Material do Projeto
 
-Os diagramas originais e o enunciado estão na pasta `../material/`:
-
 ```
-material/
-├── DiagramaDER.png          # DER original
-├── DiagramaDeClasses.png    # Diagrama de classes original
-├── SQL_DDL.png              # DDL em imagem
-├── SQL_DML.png              # DML em imagem
-├── UnidadeConservacao.sql   # DDL original (sintaxe MySQL)
-├── InsereDados.sql          # DML com dados de exemplo
+../material/
+├── DiagramaDER.png
+├── DiagramaDeClasses.png
+├── SQL_DDL.png
+├── SQL_DML.png
+├── UnidadeConservacao.sql   # DDL original (sintaxe MySQL — ver adaptação acima)
+├── InsereDados.sql
 └── Enunciado do Trabalho.pdf
 ```
