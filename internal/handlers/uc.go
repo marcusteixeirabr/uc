@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"embed"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -39,7 +40,7 @@ func (h *Handler) UCList(w http.ResponseWriter, r *http.Request) {
 		Order("nome", &postgrest.OrderOpts{Ascending: true}).
 		ExecuteTo(&rows)
 	if err != nil {
-		log.Printf("erro na query: %v", err)
+		log.Printf("%v", fmt.Errorf("UCList: buscar unidades: %w", err))
 		http.Error(w, "Erro interno", http.StatusInternalServerError)
 		return
 	}
@@ -56,7 +57,7 @@ func (h *Handler) UCList(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := template.ParseFS(h.Templates, "templates/base.html", "templates/uc_list.html")
 	if err != nil {
-		log.Printf("erro no template: %v", err)
+		log.Printf("%v", fmt.Errorf("UCList: carregar template: %w", err))
 		http.Error(w, "Erro interno", http.StatusInternalServerError)
 		return
 	}

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -35,14 +36,14 @@ func (h *Handler) ComunicacaoForm(w http.ResponseWriter, r *http.Request) {
 		Order("nome", &postgrest.OrderOpts{Ascending: true}).
 		ExecuteTo(&opcoes)
 	if err != nil {
-		log.Printf("erro na query: %v", err)
+		log.Printf("%v", fmt.Errorf("ComunicacaoForm: buscar UCs: %w", err))
 		http.Error(w, "Erro interno", http.StatusInternalServerError)
 		return
 	}
 
 	tmpl, err := template.ParseFS(h.Templates, "templates/base.html", "templates/comunicacao_form.html")
 	if err != nil {
-		log.Printf("erro no template: %v", err)
+		log.Printf("%v", fmt.Errorf("ComunicacaoForm: carregar template: %w", err))
 		http.Error(w, "Erro interno", http.StatusInternalServerError)
 		return
 	}
@@ -80,7 +81,7 @@ func (h *Handler) comunicacaoCreate(w http.ResponseWriter, r *http.Request) {
 		}, false, "", "minimal", "").
 		Execute()
 	if err != nil {
-		log.Printf("erro ao inserir: %v", err)
+		log.Printf("%v", fmt.Errorf("comunicacaoCreate: inserir no banco: %w", err))
 		http.Error(w, "Erro interno", http.StatusInternalServerError)
 		return
 	}
@@ -112,7 +113,7 @@ func (h *Handler) ComunicacaoList(w http.ResponseWriter, r *http.Request) {
 		Order("data_hora", &postgrest.OrderOpts{Ascending: false}).
 		ExecuteTo(&rows)
 	if err != nil {
-		log.Printf("erro na query: %v", err)
+		log.Printf("%v", fmt.Errorf("ComunicacaoList: buscar comunicações: %w", err))
 		http.Error(w, "Erro interno", http.StatusInternalServerError)
 		return
 	}
@@ -134,7 +135,7 @@ func (h *Handler) ComunicacaoList(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := template.ParseFS(h.Templates, "templates/base.html", "templates/comunicacao_list.html")
 	if err != nil {
-		log.Printf("erro no template: %v", err)
+		log.Printf("%v", fmt.Errorf("ComunicacaoList: carregar template: %w", err))
 		http.Error(w, "Erro interno", http.StatusInternalServerError)
 		return
 	}

@@ -1,6 +1,7 @@
 package db
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -11,7 +12,11 @@ func Connect() (*supabase.Client, error) {
 	url := os.Getenv("DATABASE_URL")
 	key := os.Getenv("DATABASE_KEY")
 	if url == "" || key == "" {
-		return nil, fmt.Errorf("DATABASE_URL e DATABASE_KEY são obrigatórias no .env")
+		return nil, errors.New("DATABASE_URL e DATABASE_KEY são obrigatórias no .env")
 	}
-	return supabase.NewClient(url, key, nil)
+	client, err := supabase.NewClient(url, key, nil)
+	if err != nil {
+		return nil, fmt.Errorf("db.Connect: criar cliente supabase: %w", err)
+	}
+	return client, nil
 }
