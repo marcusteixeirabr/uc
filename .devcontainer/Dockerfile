@@ -8,6 +8,7 @@ RUN apk add --no-cache \
     wget \
     make \
     bash \
+    openssh-client \
     postgresql-client
 
 # Compila e instala as ferramentas Go, depois limpa o cache de módulos.

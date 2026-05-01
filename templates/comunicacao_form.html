@@ -18,6 +18,9 @@
       <label>Unidade de Conservação:<br>
           <select name="unidade_id" required style="width:100%">
               <option value="">-- selecione --</option>
+              {{range .}}
+                  <option value="{{.ID}}">{{.Nome}}</option>
+              {{end}}
           </select>
       </label><br><br>
 
