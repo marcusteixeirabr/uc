@@ -63,5 +63,5 @@
 
   "forwardPorts": [8180],
 
-  "postCreateCommand": "if [ -f go.mod ]; then go mod tidy; fi"
+  "postCreateCommand": "bash /workspace/.devcontainer/setup-ssh.sh && ([ -f go.mod ] && go mod tidy || true)"
 }

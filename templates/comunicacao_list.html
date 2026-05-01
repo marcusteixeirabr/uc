@@ -10,7 +10,7 @@
           <td>{{.NomeUC}}</td>
           <td>{{.Email}}</td>
           <td>{{.DataHora}}</td>
-          <td>{{if eq .Status 0}}Pendente{{else}}Atendida{{end}}</td>
+          <td>{{if eq .Status 0}}<span style="color: red;">Pendente</span>{{else}}<span style="color: green;">Atendida</span>{{end}}</td>
       </tr>
       {{else}}
       <tr><td colspan="5">Nenhuma comunicação registrada.</td></tr>
