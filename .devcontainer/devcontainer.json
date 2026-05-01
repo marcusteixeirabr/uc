@@ -61,7 +61,7 @@
     }
   },
 
-  "forwardPorts": 8180,
+  "forwardPorts": [8180],
 
   "postCreateCommand": "if [ -f go.mod ]; then go mod tidy; fi"
 }

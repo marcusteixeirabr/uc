@@ -1,0 +1,19 @@
+  {{template "base" .}}
+  {{define "title"}}Comunicações{{end}}
+  {{define "content"}}
+  <h1>Comunicações Registradas</h1>
+  <table>
+      <tr><th>Título</th><th>UC</th><th>E-mail</th><th>Data/Hora</th><th>Status</th></tr>
+      {{range .}}
+      <tr>
+          <td>{{.Titulo}}</td>
+          <td>{{.NomeUC}}</td>
+          <td>{{.Email}}</td>
+          <td>{{.DataHora}}</td>
+          <td>{{if eq .Status 0}}Pendente{{else}}Atendida{{end}}</td>
+      </tr>
+      {{else}}
+      <tr><td colspan="5">Nenhuma comunicação registrada.</td></tr>
+      {{end}}
+  </table>
+  {{end}}

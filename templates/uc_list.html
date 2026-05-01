@@ -1,0 +1,25 @@
+{{template "base" .}}
+{{define "title"}}Unidades de Conservação{{end}}
+{{define "content"}}
+<h1>Unidades de Conservação</h1>
+<table>
+    <tr>
+        <th>Nome</th>
+        <th>Criação</th>
+        <th>Instituição</th>
+        <th>Descrição</th>
+    </tr>
+    {{range .}}
+    <tr>
+        <td>{{.Name}}</td>
+        <td>{{.DataCriacao}}</td>
+        <td>{{.Instituicao}}</td>
+        <td>{{.Descricao}}</td>
+    </tr>
+    {{else}}
+    <tr>
+        <td colspan="3">Nenhuma Unidade de Conservação encontrada.</td>
+    </tr>
+    {{end}}
+</table>
+{{end}}
