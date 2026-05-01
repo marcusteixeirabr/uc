@@ -8,6 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/marcusteixeirabr/uc/internal/db"
 	"github.com/marcusteixeirabr/uc/internal/handlers"
+	"github.com/marcusteixeirabr/uc/internal/middleware"
 )
 
 func main() {
@@ -24,10 +25,12 @@ func main() {
 	}
 
 	h := &handlers.Handler{DB: client}
-	http.HandleFunc("/ucs", h.UCList)
-	http.HandleFunc("/comunicacoes", h.ComunicacaoList)
-	http.HandleFunc("/comunicacoes/nova", h.ComunicacaoForm)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/ucs", h.UCList)
+	mux.HandleFunc("/comunicacoes", h.ComunicacaoList)
+	mux.HandleFunc("/comunicacoes/nova", h.ComunicacaoForm)
 
 	log.Printf("Servidor rodando em http://localhost:%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	log.Fatal(http.ListenAndServe(":"+port, middleware.Logger(mux)))
 }
