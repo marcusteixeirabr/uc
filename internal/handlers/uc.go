@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"embed"
 	"html/template"
 	"log"
 	"net/http"
@@ -10,7 +11,8 @@ import (
 )
 
 type Handler struct {
-	DB *supabase.Client
+	DB        *supabase.Client
+	Templates embed.FS
 }
 
 type UC struct {
@@ -52,7 +54,7 @@ func (h *Handler) UCList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	tmpl, err := template.ParseFiles("templates/base.html", "templates/uc_list.html")
+	tmpl, err := template.ParseFS(h.Templates, "templates/base.html", "templates/uc_list.html")
 	if err != nil {
 		log.Printf("erro no template: %v", err)
 		http.Error(w, "Erro interno", http.StatusInternalServerError)

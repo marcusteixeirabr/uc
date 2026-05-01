@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"log"
 	"net/http"
 	"os"
@@ -10,6 +11,9 @@ import (
 	"github.com/marcusteixeirabr/uc/internal/handlers"
 	"github.com/marcusteixeirabr/uc/internal/middleware"
 )
+
+//go:embed templates
+var templateFS embed.FS
 
 func main() {
 	godotenv.Overload() // carrega .env sobrescrevendo o ambiente; garante .env como fonte de verdade no dev
@@ -24,7 +28,7 @@ func main() {
 		port = "8180"
 	}
 
-	h := &handlers.Handler{DB: client}
+	h := &handlers.Handler{DB: client, Templates: templateFS}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ucs", h.UCList)

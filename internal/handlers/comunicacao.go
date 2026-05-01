@@ -40,7 +40,7 @@ func (h *Handler) ComunicacaoForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tmpl, err := template.ParseFiles("templates/base.html", "templates/comunicacao_form.html")
+	tmpl, err := template.ParseFS(h.Templates, "templates/base.html", "templates/comunicacao_form.html")
 	if err != nil {
 		log.Printf("erro no template: %v", err)
 		http.Error(w, "Erro interno", http.StatusInternalServerError)
@@ -132,7 +132,7 @@ func (h *Handler) ComunicacaoList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	tmpl, err := template.ParseFiles("templates/base.html", "templates/comunicacao_list.html")
+	tmpl, err := template.ParseFS(h.Templates, "templates/base.html", "templates/comunicacao_list.html")
 	if err != nil {
 		log.Printf("erro no template: %v", err)
 		http.Error(w, "Erro interno", http.StatusInternalServerError)

@@ -1,3 +1,4 @@
 # uc/.gitignore
 .env
 tmp/
+*.exe
