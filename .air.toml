@@ -1,0 +1,20 @@
+# .air.toml — configuração do hot reload para o projeto uc
+
+[build]
+  # Comando que o air executa quando detecta mudança
+  cmd = "go build -o /tmp/air/main ."
+
+  # Binário que o air vai executar após compilar
+  bin = "/tmp/air/main"
+
+  # Extensões que disparam o rebuild
+  include_ext = ["go", "html"]
+
+  # Pastas ignoradas
+  exclude_dir = ["tmp", "vendor", ".git"]
+
+  # Aguarda 1s antes de rebuildar (agrupa múltiplos saves)
+  delay = 1000
+
+[log]
+  time = true

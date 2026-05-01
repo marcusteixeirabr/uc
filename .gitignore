@@ -1,2 +1,3 @@
 # uc/.gitignore
 .env
+tmp/
